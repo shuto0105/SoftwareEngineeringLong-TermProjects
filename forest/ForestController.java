@@ -1,41 +1,41 @@
+package forest;
+
 import java.awt.awt.Event.ActionEvent;
 import java.awt.Event.MouseEvent;
 import java.awt.Point;
 
-import mvc.Controller
+import mvc.Controller;
 
 /**
  * Forestのユーザからの入力を司るクラス
  */
-public class ForestController extends Controller{
+public class ForestController extends Controller {
 
-	/*
-	 * Modelを束縛するフィールド
-	 */
-	protected ForestModel model;
+    /*
+     * Modelを束縛するフィールド
+     */
+    protected ForestModel model;
 
-	/**
+    /**
      * ForestViewを束縛するフィールド
      */
     protected ForestView view;
 
-	/**
-	 * 過去と現在におけるクリックされている座標を保持しておくフィールド
-	 * プロ演の方でもフィールドの宣言だけしているから必要ないかも
-	 */
-	private Point previous;
-	private Point current;
+    /**
+     * 過去と現在におけるクリックされている座標を保持しておくフィールド
+     * プロ演の方でもフィールドの宣言だけしているから必要ないかも
+     */
+    private Point previous;
+    private Point current;
 
+    /**
+     * このクラスのコンストラクタ
+     */
+    public ForestController() {
 
-	/**
-	 * このクラスのコンストラクタ
-	 */
-	public ForestController()
-	{
+    }
 
-	}
-
-	/**
+    /**
      * Modelのセット
      */
     public void setModel(ForestModel aModel) {
@@ -50,15 +50,14 @@ public class ForestController extends Controller{
         return;
     }
 
-	/**
-	 * ボタンが押された時の処理の全てを司るメソッド
-	 */
-	public void handleCilck(ActionEvent anEvent)
-	{
+    /**
+     * ボタンが押された時の処理の全てを司るメソッド
+     */
+    public void handleCilck(ActionEvent anEvent) {
 
-	}
+    }
 
-	/**
+    /**
      * マウスが押された時の制御に関するメソッド。
      * それは、ForestModelのmouseButtonPressedをtrueに変更するようにメッセージ送信をすることである。
      * 

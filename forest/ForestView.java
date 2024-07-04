@@ -1,3 +1,5 @@
+package forest;
+
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
@@ -8,7 +10,7 @@ import java.io.File;
 import java.awt.Graphics;
 import java.awt.Point;
 
-import mvc.View
+import mvc.View;
 
 /**
  * Forestに関する表示を司る外部クラス
