@@ -8,54 +8,31 @@ import java.io.File;
 
 import java.awt.Point;
 
-import mvc.Model;
-
 /**
- * Forestに関する情報の処理を司るクラス
+ * Forestに関する情報の処理を司るクラス 今んとこmodelからコントローラ、Viewを呼び出すことはない！
  */
-public class ForestModel extends Model {
-    /**
-     * ForestViewを束縛するフィールド
-     */
-    protected ForestView view;
-
-    /**
-     * ForestControllerを束縛するフィールド
-     * 
-     * protected ForestController controller;
-     * 
-     * /**
-     * 選択されたテキストファイルを保持するフィールド
-     */
-    private File selectedFile;
-
-    /**
-     * テキストファイル内の文字列をString型のListとして保持するフィールド
-     */
-    private List<String> textElements = new ArrayList<String>();
-
-    /**
-     * テキストファイル内の文字列から親ノードと子ノードのマップを保持するフィールド
-     */
-    // private Map<>;
-
-    /**
-     * 子ノードの高さの平均を保持するフィールド
-     * 
-     * 
-     * 
-     * /**
-     * このクラスのコンストラクタ
-     */
-    public ForestModel(File selectedFile) {
-
+public class ForestModel extends Object {
+    public ForestModel() { // コンストラクタ(Modelがコントローラを持つかどうかはまだ決まってない(なるべく持たせたくない))
     }
 
-    /**
-     * 選択された木構造のテキストファイルを読み込むメソッド
-     */
-    public void importSelectedFile() {
+    // protected ForestController controller; ForestControllerを束縛するフィールド => 使わん
+    protected ForestView view; // ForestViewを束縛するフィールド
+    private File selectedFile; // 選択されたテキストファイルを保持するフィールド
+    private List<String> textElements = new ArrayList<String>(); // テキストファイル内の文字列をString型のListとして保持するフィールド
+    // private Map<>; // テキストファイル内の文字列から親ノードと子ノードのマップを保持するフィールド
+    private double meanChildrenHeight; // 子ノードの高さの平均を保持するフィールド
 
+    /**
+     * 選択された木構造のテキストファイルを読み込み返すメソッド (controller.handleMenuButtonCilck()から呼び出し)
+     * String(File名) => File
+     */
+    public File importSelectedFile(String fileName) {
+        this.selectedFile = new File("resource/data/" + fileName + ".txt");
+        if (!(this.selectedFile.exists())) {
+            System.err.println("'" + fileName + "' does not exist.");
+            System.exit(1);
+        }
+        return this.selectedFile;
     }
 
     /**
@@ -83,14 +60,14 @@ public class ForestModel extends Model {
      * 子ノードの高さの平均値を求めるメソッド
      */
     public Double getMeanChildrenHeight() {
-
+        return 2.20;
     }
 
     /**
      * 親ノードの高さを子ノードの高さの平均値に修正するメソッド
      */
     public Double modifyParentsHeight() {
-
+        return 2.2;
     }
 
 }
