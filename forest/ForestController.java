@@ -1,14 +1,15 @@
 package forest;
 
-import java.awt.event.ActionEvent;
+import java.util.ArrayList; // データ型系
+import java.util.HashMap;
+import java.io.File; // ファイル系
+
+import java.awt.event.ActionEvent; // awt, swingグラフィック系
 import java.awt.event.WindowEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
-import java.io.File;
-
-import javax.swing.Action;
-
 import java.awt.Point;
+import javax.swing.Action;
 
 /**
  * Forestのユーザからの入力を司るクラス
@@ -35,27 +36,28 @@ public class ForestController extends Object {
      * ボタンが押された時の処理の全てを司るメソッド
      */
     public void handleMenuButtonCilck(ActionEvent anEvent) { // メニューウィンドウのボタンクリックイベントが来る
-
-        System.out.println(anEvent);
-        // todo: ここで現在動いている木構造のウィンドウがあれば閉じたい
-
         String fileName = anEvent.getActionCommand(); // 選択されたファイル名(tree, forest,...)が取れる
         this.selectedFile = forestModel.importSelectedFile(fileName); // Modelにファイルをインポートさせる
 
-        // todo: forestWindow出す前にModelにデータ解析させる
+        // ModelからArrayList<String>(nodesが入る)、HashMap(branchesが入る)、
+        ArrayList<String> nodesArrayList = this.forestModel.getNodesArrayList();
+        HashMap<Integer, ArrayList<Integer>> branchesMap = this.forestModel.getBranchesMap();
+        ArrayList<Integer> rootNodesArrayList = this.forestModel.getRootNodesArrayList();
+        this.forestView.instantiateForestWindowClass(new HandleWindowClosed(), this.selectedFile.getName(),
+                nodesArrayList, branchesMap, rootNodesArrayList); // アニメーションスタートさせる(Viewに)
 
-        this.forestView.instantiateForestWindowClass(new HandleWindowClosed(), this.selectedFile.getName()); // ここで(ファイル名,
-                                                                                                             // Map,
-                                                                                                             // List)を渡したい
     }
 
     /*
-     * アニメーションウィンドウが閉じられた時にviewから呼ばれる
+     * アニメーションウィンドウが閉じられた時にviewから呼ばれる(多分クラスにしないとwindowイベントを取れないと思うのでクラス)
      */
-    class HandleWindowClosed extends WindowAdapter { // これはコントローラにおいた方がいいか =
+    class HandleWindowClosed extends WindowAdapter { // https://www.tohoho-web.com/java/listener.htm
         public void windowClosed(WindowEvent e) {
-            // 外部クラス(ForestController)のforestView(インスタンス)を呼び出している
-            ForestController.this.forestView.setVisibleMenuWindow(); // メニューウィンドウを出す(viewにやらせる)
+            //
+            ForestController.this.forestModel = new ForestModel(); // Modelを初期化する(ファイルのデータが残ってしまうため)
+            //
+            // 👇外部クラス(ForestController)のforestView(インスタンス)を呼び出している
+            ForestController.this.forestView.setVisibleMenuWindow(ForestController.this.forestModel); // メニューウィンドウを出す(viewにやらせる)
         }
     }
 

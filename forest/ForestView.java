@@ -1,17 +1,22 @@
 package forest;
 
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-
 import forest.ForestController.HandleWindowClosed;
 import forest.ForestView.MenuWindowClass;
 
-import javax.swing.JLabel;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.io.File;
 
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.border.LineBorder;
+import javax.swing.JLabel;
+
+import java.awt.Color;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
@@ -19,6 +24,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.GridLayout;
+import java.awt.Dimension;
+import javax.swing.Timer;
 
 /**
  * Forestに関する表示を司る外部クラス
@@ -35,20 +42,29 @@ public class ForestView extends Object {
 	private MenuWindowClass menuWindowClass = null;
 	private ForestWindowClass forestWindowClass = null;
 
+	// あぷり起動時に一回だけ実行される(メニュー画面作成(MenuWindowClassをインスタンス化))
 	public void instantiateMenuWindowClass(ForestController forestController) { // コントローラrun()から呼び出される
 		// メニュークラスをインスタンス化するとメニューウィンドウが立ち上がる(メニューウィンドウクラスにやらせる)
 		this.menuWindowClass = new MenuWindowClass(forestController); // ボタンを押した時にイベントを登録するためにコントローラを渡す！
 	}
 
-	public void setVisibleMenuWindow() { // controller.HandleWindowClosedから呼ばれる(アニメーションウィンドウが閉じれば呼ばれる)
+	public void setVisibleMenuWindow(ForestModel forestModel) { // controller.HandleWindowClosedから呼ばれる(アニメーションウィンドウが閉じれば呼ばれる)
 		this.menuWindowClass.setVisible(true);
+		this.forestModel = forestModel;
 		this.forestWindowClass = null; // アニメーションウィンドウのインスタンスを削除する
 	}
 
-	public void instantiateForestWindowClass(HandleWindowClosed handleWindowClosed, String fileName) { // controller.handleMenuButtonCilckから呼び出される
-		this.menuWindowClass.setVisible(false);
-		this.forestWindowClass = new ForestWindowClass(handleWindowClosed, fileName); // インスタンス化で勝手に(自分でやらせる)アニメーションスタート
+	public void instantiateForestWindowClass(HandleWindowClosed handleWindowClosed, String fileName,
+			ArrayList<String> nodesArrayList, HashMap<Integer, ArrayList<Integer>> branchesMap,
+			ArrayList<Integer> rootNodesArrayList) { // controller.handleMenuButtonCilckから呼び出される
+		this.menuWindowClass.setVisible(false); // メニューウィンドウを隠す
+		this.forestWindowClass = new ForestWindowClass(handleWindowClosed, fileName, nodesArrayList, branchesMap,
+				rootNodesArrayList); // インスタンス化する
+		forestWindowClass.showAnimationWindow(handleWindowClosed);
 	}
+
+	// 👆👆👆👆👆上の3つのメソッドはコントローラから呼び出されて下の2つのクラス(MenuWindowClassとForestWindowClass)に指示を出すだけ
+	// 👇👇👇👇👇メインの処理は全部下の二つのクラスでやる
 
 	/**
 	 * 設定画面の処理を司る内部クラス
@@ -103,53 +119,211 @@ public class ForestView extends Object {
 	 * 木構造(アニメーション)やる内部クラス
 	 */
 	public class ForestWindowClass extends JFrame {
-		public ForestWindowClass(HandleWindowClosed handleWindowClosed, String fileName) { // コンストラクタ
+		// コンストラクタ
+		public ForestWindowClass(HandleWindowClosed handleWindowClosed, String fileName,
+				ArrayList<String> nodesArrayList, HashMap<Integer, ArrayList<Integer>> branchesMap,
+				ArrayList<Integer> rootNodesArrayList) { // コンストラクタ
 			super();
 			this.fileName = fileName;
-			this.showAnimationWindow(handleWindowClosed);
+			this.nodesArrayList = nodesArrayList;
+			this.branchesMap = branchesMap;
+			this.rootNodesArrayList = rootNodesArrayList;
 		}
 
-		private JPanel aPanel = null; // ここにアニメーション乗っけていく
-
-		private String fileName = null;
-		private int x; // ノードを表示するべき位置(x座標)を保持しておくフィールド
-		private int y; // ノードを表示するべき位置(y座標)を保持しておくフィールド
-		// map, list, fileName
+		private ArrayList<String> nodesArrayList = null; // テキストファイル内のnodesをString型のListとして保持するフィールド
+		private HashMap<Integer, ArrayList<Integer>> branchesMap = null; // テキストファイル内の文字列から親ノードと子ノードのマップを保持するフィールド
+		private ArrayList<Integer> rootNodesArrayList = null; // rootのnodeの番号リスト
+		private Container aPane = null;
+		private JPanel aPanel = null; // ここにアニメーション乗っけていくかんじかな
+		private String fileName = null; // ファイル名JFrameのタイトルで使う
+		private int x = 0; // ノードを表示するべき位置(x座標)を保持しておくフィールド
+		private int y = 0; // ノードを表示するべき位置(y座標)を保持しておくフィールド
+		private ArrayList<JLabel> labelsArrayList = new ArrayList<>();
+		private JLabel parentLabel = null; // paint()で使用する
+		private JLabel childLabel = null; // 〃〃
 
 		/**
-		 * アニメーションの表示を司るメソッド
+		 * アニメーションの表示を司るメソッド(最初に呼ばれるこっからスタート)
 		 */
 		public void showAnimationWindow(HandleWindowClosed handleWindowClosed) {
-			getContentPane();
-			this.setAnimationWindow(handleWindowClosed); // window setting
+			this.setAnimationWindow(handleWindowClosed); // window setting(諸々設定)
+			this.makeJLabelListFromNodesArrayList(); // nodesのラベルを作って縦に並べる
+			this.runAnimation();
+		}
+
+		public void runAnimation() {
+			// this.rootNodesArrayList ごとに searchForestかな
+			new Thread(() -> {
+
+				try {
+					Thread.sleep(1000);
+					exploreTree(this.rootNodesArrayList, 0);
+				} catch (Exception e) {
+				}
+			}).start();
+			// this.aPanel.revalidate(); // 再描画？？
+			// this.aPanel.repaint();
+		}
+
+		/*
+		 * nodeNumでルートのnodeを受け取ってアニメーション(位置を変更していく)
+		 * *再帰呼び出し*
+		 */
+		public void exploreTree(ArrayList<Integer> currentNodeArr, Integer parentNodeNum) { // スタートは1かどうかわからんくなってきた
+			currentNodeArr.forEach(currentNodeNum -> {
+				try {
+
+					JLabel currentLabel = this.labelsArrayList.get(currentNodeNum - 1); // 0~なので node番号から-1!!
+					Dimension size = currentLabel.getPreferredSize();
+					// Thread thread = new Thread(() -> {
+					// });
+					this.setPointX(currentNodeNum, parentNodeNum);
+					this.setPointY(currentNodeNum, parentNodeNum);
+					// thread.start();
+					// Thread.sleep(500);
+					try {
+						// thread.join();
+						System.out.println("どこやねん");
+						currentLabel.setBounds(this.x, this.y, (int) size.getWidth(), (int) size.getHeight());
+						this.aPanel.revalidate(); // 再描画？？
+						this.aPanel.repaint();
+						this.paint(getGraphics());
+						System.out.println("どこやねん終わり");
+						Thread sleepThread = new Thread(() -> {
+							try {
+								Thread.sleep(800);
+							} catch (Exception e) {
+							}
+						});
+						sleepThread.start();
+						sleepThread.join();
+						// this.paint(getGraphics());
+						if (this.branchesMap.containsKey(currentNodeNum)) {
+							this.exploreTree(this.branchesMap.get(currentNodeNum), currentNodeNum); // 再帰呼び出し
+							// todo: nodeNumの位置を修正
+						}
+					} catch (Exception e) {
+
+					}
+
+					// Thread.sleep(500);
+					// JLabel currentLabel = this.labelsArrayList.get(currentNodeNum - 1); // 0~なので
+					// node番号から-1!!
+					// Dimension size = currentLabel.getPreferredSize();
+					// this.setPointX(currentNodeNum, parentNodeNum);
+					// this.setPointY(currentNodeNum, parentNodeNum);
+					// currentLabel.setBounds(this.x, this.y, (int) size.getWidth(), (int)
+					// size.getHeight());
+					// this.paint(getGraphics());
+
+					// childがいるかどうか
+					// if (this.branchesMap.containsKey(currentNodeNum)) {
+					// this.exploreTree(this.branchesMap.get(currentNodeNum), currentNodeNum); //
+					// 再帰呼び出し
+					// // todo: nodeNumの位置を修正
+					// }
+					// 兄弟(弟)がいるかどうかはいらんのか
+				} catch (Exception e) {
+					System.out.println(e);
+				}
+			});
+		}
+
+		/*
+		 * 全てのnodesのラベルを作って縦に並べる
+		 */
+		public void makeJLabelListFromNodesArrayList() {
+			for (String node : this.nodesArrayList) {
+				JLabel alabel = new JLabel(node); // ラベル作成
+				this.labelsArrayList.add(alabel);
+				alabel.setBorder(new LineBorder(Color.BLACK, 2, false));
+				Dimension size = alabel.getPreferredSize(); // 適切なサイズ？を取得する
+															// https://www.javadrive.jp/tutorial/jlabel/index4.html#section1
+				int index = this.labelsArrayList.size() - 1;
+				alabel.setBounds(0, index * (int) size.getHeight(), (int) size.getWidth(), (int) size.getHeight()); // 位置決定
+				this.aPanel.add(alabel); // パネルに追加する
+			}
+		}
+
+		/*
+		 * 2つのラベルを線で繋ぐ (ここは再描画のたびに自動で呼ばれるぽい？)
+		 * todo: Graphicsの書き方はマジでわからん修正いるかも、2重ループが汚いのでできれば修正したい
+		 */
+		public void paint(Graphics aGraphics) {
+			// super.paint(aGraphics);
+			System.out.println("再描画かな？？");
+			try {
+				this.aPanel.paintComponents(aGraphics);
+				aGraphics.setColor(Color.BLACK);
+				Thread thread = new Thread(() -> {
+					this.branchesMap.forEach((parentNum, childArrayList) -> { // ラベル間の線を描画
+						this.parentLabel = this.labelsArrayList.get(parentNum - 1); // 親のラベルを取得する
+						childArrayList.forEach(childNum -> { // MapのvalueのchildNodeの配列を回す
+							this.childLabel = this.labelsArrayList.get(childNum - 1);
+							int y1 = parentLabel.getY() + parentLabel.getHeight() / 2;
+							int y2 = childLabel.getY() + childLabel.getHeight() / 2;
+							aGraphics.drawLine(parentLabel.getX() + parentLabel.getWidth(), y1, childLabel.getX(), y2);
+						});
+					});
+				});
+				thread.start();
+				thread.join();
+				System.out.println("終了！！");
+				return;
+			} catch (Exception e) {
+			}
+		}
+
+		/**
+		 * アニメーションwindowの設定を司るメソッド
+		 */
+		public void setAnimationWindow(HandleWindowClosed handleWindowClosed) {
+			this.aPane = this.getContentPane();
+			this.aPanel = new JPanel();
+			this.aPanel.setLayout(null);
+			this.aPane.add(this.aPanel, null);
+			setTitle(this.fileName);
+			setSize(800, 800);
+			setLocation(0, 0);
+			setDefaultCloseOperation(DISPOSE_ON_CLOSE); // https://www.tohoho-web.com/java/layout.htm
+			addWindowListener(handleWindowClosed); // windowを閉じるときの処理を追加(コントローラにやらせる)
 			setVisible(true); // 表示かな
 		}
 
 		/**
-		 * アニメーションの設定を司るメソッド
-		 */
-		public void setAnimationWindow(HandleWindowClosed handleWindowClosed) {
-			this.aPanel = new JPanel();
-			add(this.aPanel);
-			// todo: 閉じ方はなんか変更する
-			setDefaultCloseOperation(DISPOSE_ON_CLOSE); // https://www.tohoho-web.com/java/layout.htm
-			setTitle("Select Tree");
-			setSize(800, 800);
-			addWindowListener(handleWindowClosed);
-		}
-
-		/**
 		 * 文字列ノード(JLabelごと)を表示すべき位置(x座標)を設定する
+		 * todo:修正
 		 */
-		public void setPointX(int x) {
-
+		public void setPointX(Integer currentNodeNum, Integer parentNodeNum) {
+			if (parentNodeNum == 0) {
+				return;
+			}
+			JLabel parentNodeLabel = this.labelsArrayList.get(parentNodeNum - 1);
+			Integer parentNodeX = parentNodeLabel.getX();
+			Integer parentNodeWidth = parentNodeLabel.getWidth();
+			if (this.x != parentNodeX + parentNodeWidth + 25) {
+				this.x = parentNodeX + parentNodeWidth + 25;
+			}
 		}
 
 		/**
 		 * 文字列ノード(JLabelごと)を表示すべき位置(y座標)を設定する
+		 * todo:修正
 		 */
-		public void setPointY(int y) {
-
+		public void setPointY(Integer currentNodeNum, Integer parentNodeNum) {
+			if (parentNodeNum == 0) {
+				return;
+			}
+			JLabel parentNodeLabel = this.labelsArrayList.get(parentNodeNum - 1);
+			Integer parentNodeX = parentNodeLabel.getX();
+			Integer parentNodeWidth = parentNodeLabel.getWidth();
+			// Integer parentNodeY = parentNodeLabel.getY();
+			Integer parentNodeHeight = parentNodeLabel.getHeight();
+			if (this.x != parentNodeX + parentNodeWidth + 25) {
+				this.y = this.y + parentNodeHeight + 2;
+			} else {
+				this.y += 10;
+			}
 		}
 
 	}
