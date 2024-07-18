@@ -16,6 +16,8 @@ import javax.swing.JLabel;
 import java.awt.Color;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComponent;
+
 import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowEvent;
@@ -116,7 +118,7 @@ public class ForestView extends Object {
 	}
 
 	/**
-	 * 木構造(アニメーション)やる内部クラス
+	 * 木構造(アニメーション)やる内部クラス todo: extends JPanel に変更かな(JPanel)
 	 */
 	public class ForestWindowClass extends JFrame {
 		// コンストラクタ
@@ -141,6 +143,7 @@ public class ForestView extends Object {
 		private ArrayList<JLabel> labelsArrayList = new ArrayList<>();
 		private JLabel parentLabel = null; // paint()で使用する
 		private JLabel childLabel = null; // 〃〃
+		private Graphics g = null;
 
 		/**
 		 * アニメーションの表示を司るメソッド(最初に呼ばれるこっからスタート)
@@ -153,23 +156,26 @@ public class ForestView extends Object {
 
 		public void runAnimation() {
 			// this.rootNodesArrayList ごとに searchForestかな
-			new Thread(() -> {
-
+			Thread startThread = new Thread(() -> {
 				try {
 					Thread.sleep(1000);
 					exploreTree(this.rootNodesArrayList, 0);
 				} catch (Exception e) {
 				}
-			}).start();
+
+			});
+			startThread.start();
+
 			// this.aPanel.revalidate(); // 再描画？？
 			// this.aPanel.repaint();
 		}
 
 		/*
-		 * nodeNumでルートのnodeを受け取ってアニメーション(位置を変更していく)
-		 * *再帰呼び出し*
+		 * nodeNumでルートのnodeを受け取ってアニメーション(位置を変更していく)(再帰呼び出し)
 		 */
 		public void exploreTree(ArrayList<Integer> currentNodeArr, Integer parentNodeNum) { // スタートは1かどうかわからんくなってきた
+			System.out.println("探索中...");
+
 			currentNodeArr.forEach(currentNodeNum -> {
 				try {
 
@@ -177,18 +183,21 @@ public class ForestView extends Object {
 					Dimension size = currentLabel.getPreferredSize();
 					// Thread thread = new Thread(() -> {
 					// });
-					this.setPointX(currentNodeNum, parentNodeNum);
-					this.setPointY(currentNodeNum, parentNodeNum);
+					Boolean isOldestChild = false; // child配列の一番目かどうか
+					if (this.labelsArrayList.get(currentNodeArr.get(0) - 1) == currentLabel)
+						isOldestChild = true;
+					this.setPointX(currentNodeNum, parentNodeNum, isOldestChild);
+					this.setPointY(currentNodeNum, parentNodeNum, isOldestChild);
+					// isOldestChild = false;
 					// thread.start();
 					// Thread.sleep(500);
 					try {
 						// thread.join();
-						System.out.println("どこやねん");
 						currentLabel.setBounds(this.x, this.y, (int) size.getWidth(), (int) size.getHeight());
-						this.aPanel.revalidate(); // 再描画？？
-						this.aPanel.repaint();
-						this.paint(getGraphics());
-						System.out.println("どこやねん終わり");
+						// currentLabel.setLocation(this.x, this.y);
+						// this.aPanel.revalidate(); // 再描画？？
+						// this.aPanel.repaint();
+						// this.paint(this.g);
 						Thread sleepThread = new Thread(() -> {
 							try {
 								Thread.sleep(800);
@@ -230,7 +239,7 @@ public class ForestView extends Object {
 		}
 
 		/*
-		 * 全てのnodesのラベルを作って縦に並べる
+		 * 全てのnodesのラベルを作って縦に並べる todo: for => foreachに変更！！
 		 */
 		public void makeJLabelListFromNodesArrayList() {
 			for (String node : this.nodesArrayList) {
@@ -245,32 +254,41 @@ public class ForestView extends Object {
 			}
 		}
 
-		/*
-		 * 2つのラベルを線で繋ぐ (ここは再描画のたびに自動で呼ばれるぽい？)
-		 * todo: Graphicsの書き方はマジでわからん修正いるかも、2重ループが汚いのでできれば修正したい
-		 */
-		public void paint(Graphics aGraphics) {
-			// super.paint(aGraphics);
-			System.out.println("再描画かな？？");
-			try {
-				this.aPanel.paintComponents(aGraphics);
-				aGraphics.setColor(Color.BLACK);
-				Thread thread = new Thread(() -> {
-					this.branchesMap.forEach((parentNum, childArrayList) -> { // ラベル間の線を描画
-						this.parentLabel = this.labelsArrayList.get(parentNum - 1); // 親のラベルを取得する
-						childArrayList.forEach(childNum -> { // MapのvalueのchildNodeの配列を回す
-							this.childLabel = this.labelsArrayList.get(childNum - 1);
-							int y1 = parentLabel.getY() + parentLabel.getHeight() / 2;
-							int y2 = childLabel.getY() + childLabel.getHeight() / 2;
-							aGraphics.drawLine(parentLabel.getX() + parentLabel.getWidth(), y1, childLabel.getX(), y2);
+		class JPanelComponent extends JPanel {
+			JPanelComponent() {
+				super();
+			}
+
+			/*
+			 * 2つのラベルを線で繋ぐ (ここは再描画のたびに自動で呼ばれるぽい？
+			 */
+			public void paintComponent(Graphics aGraphics) {
+				this.setLayout(null);
+				// super.paint(aGraphics); // これがないと自動呼出されない？
+				System.out.println("paintcomponent呼び出し");
+				try {
+					// this.aPanel = ForestWindowClass.this.aPanel
+					// ForestWindowClass.this.aPanel.paintComponents(aGraphics);
+					aGraphics.setColor(Color.BLACK);
+					Thread thread = new Thread(() -> {
+						ForestWindowClass.this.branchesMap.forEach((parentNum, childArrayList) -> { // ラベル間の線を描画
+							ForestWindowClass.this.parentLabel = ForestWindowClass.this.labelsArrayList
+									.get(parentNum - 1); // 親のラベルを取得する
+							childArrayList.forEach(childNum -> { // MapのvalueのchildNodeの配列を回す
+								ForestWindowClass.this.childLabel = ForestWindowClass.this.labelsArrayList
+										.get(childNum - 1);
+								int y1 = parentLabel.getY() + parentLabel.getHeight() / 2;
+								int y2 = childLabel.getY() + childLabel.getHeight() / 2;
+								aGraphics.drawLine(parentLabel.getX() + parentLabel.getWidth(), y1, childLabel.getX(),
+										y2);
+							});
 						});
 					});
-				});
-				thread.start();
-				thread.join();
-				System.out.println("終了！！");
-				return;
-			} catch (Exception e) {
+					thread.start();
+					thread.join();
+					return;
+				} catch (Exception e) {
+				}
 			}
 		}
 
@@ -278,23 +296,24 @@ public class ForestView extends Object {
 		 * アニメーションwindowの設定を司るメソッド
 		 */
 		public void setAnimationWindow(HandleWindowClosed handleWindowClosed) {
-			this.aPane = this.getContentPane();
-			this.aPanel = new JPanel();
-			this.aPanel.setLayout(null);
-			this.aPane.add(this.aPanel, null);
 			setTitle(this.fileName);
 			setSize(800, 800);
 			setLocation(0, 0);
 			setDefaultCloseOperation(DISPOSE_ON_CLOSE); // https://www.tohoho-web.com/java/layout.htm
 			addWindowListener(handleWindowClosed); // windowを閉じるときの処理を追加(コントローラにやらせる)
+			// this.g = this.aPanel.getGraphics();
+			this.aPane = this.getContentPane();
+			// this.aPane.setLayout(null);
+			this.aPanel = new JPanelComponent();
+			this.aPanel.setLayout(null);
+			this.aPane.add(this.aPanel);
 			setVisible(true); // 表示かな
 		}
 
 		/**
 		 * 文字列ノード(JLabelごと)を表示すべき位置(x座標)を設定する
-		 * todo:修正
 		 */
-		public void setPointX(Integer currentNodeNum, Integer parentNodeNum) {
+		public void setPointX(Integer currentNodeNum, Integer parentNodeNum, Boolean isOldestChild) {
 			if (parentNodeNum == 0) {
 				return;
 			}
@@ -310,19 +329,20 @@ public class ForestView extends Object {
 		 * 文字列ノード(JLabelごと)を表示すべき位置(y座標)を設定する
 		 * todo:修正
 		 */
-		public void setPointY(Integer currentNodeNum, Integer parentNodeNum) {
+		public void setPointY(Integer currentNodeNum, Integer parentNodeNum, Boolean isOldestChild) {
 			if (parentNodeNum == 0) {
 				return;
 			}
 			JLabel parentNodeLabel = this.labelsArrayList.get(parentNodeNum - 1);
 			Integer parentNodeX = parentNodeLabel.getX();
 			Integer parentNodeWidth = parentNodeLabel.getWidth();
-			// Integer parentNodeY = parentNodeLabel.getY();
+			Integer parentNodeY = parentNodeLabel.getY();
 			Integer parentNodeHeight = parentNodeLabel.getHeight();
-			if (this.x != parentNodeX + parentNodeWidth + 25) {
+			if (isOldestChild == false) {
 				this.y = this.y + parentNodeHeight + 2;
+			} else if (isOldestChild == true) {
 			} else {
-				this.y += 10;
+				// this.y += 10; // いらんかな？
 			}
 		}
 
