@@ -143,7 +143,7 @@ public class ForestView extends Object {
 		private ArrayList<JLabel> labelsArrayList = new ArrayList<>();
 		private JLabel parentLabel = null; // paint()で使用する
 		private JLabel childLabel = null; // 〃〃
-		private Graphics g = null;
+		protected Point offset = new Point(0, 0); // スクロール量？
 
 		/**
 		 * アニメーションの表示を司るメソッド(最初に呼ばれるこっからスタート)
@@ -173,31 +173,22 @@ public class ForestView extends Object {
 		/*
 		 * nodeNumでルートのnodeを受け取ってアニメーション(位置を変更していく)(再帰呼び出し)
 		 */
-		public void exploreTree(ArrayList<Integer> currentNodeArr, Integer parentNodeNum) { // スタートは1かどうかわからんくなってきた
-			System.out.println("探索中...");
-
+		public void exploreTree(ArrayList<Integer> currentNodeArr, Integer parentNodeNum) {
 			currentNodeArr.forEach(currentNodeNum -> {
+				if (parentNodeNum == 0)
+					this.x = 0; // 最上位ノードであれば左よせ
 				try {
-
 					JLabel currentLabel = this.labelsArrayList.get(currentNodeNum - 1); // 0~なので node番号から-1!!
 					Dimension size = currentLabel.getPreferredSize();
-					// Thread thread = new Thread(() -> {
-					// });
-					Boolean isOldestChild = false; // child配列の一番目かどうか
+					Boolean isOldestChild = false; // child配列の一番目かどうか(this.setYで使用)
 					if (this.labelsArrayList.get(currentNodeArr.get(0) - 1) == currentLabel)
 						isOldestChild = true;
-					this.setPointX(currentNodeNum, parentNodeNum, isOldestChild);
-					this.setPointY(currentNodeNum, parentNodeNum, isOldestChild);
-					// isOldestChild = false;
-					// thread.start();
-					// Thread.sleep(500);
-					try {
-						// thread.join();
+					if (!(currentLabel.getX() != 0 && parentNodeNum != 0)) {
+						this.setPointX(currentNodeNum, parentNodeNum, isOldestChild);
+						this.setPointY(currentNodeNum, parentNodeNum, isOldestChild);
 						currentLabel.setBounds(this.x, this.y, (int) size.getWidth(), (int) size.getHeight());
-						// currentLabel.setLocation(this.x, this.y);
-						// this.aPanel.revalidate(); // 再描画？？
-						// this.aPanel.repaint();
-						// this.paint(this.g);
+					}
+					try {
 						Thread sleepThread = new Thread(() -> {
 							try {
 								Thread.sleep(800);
@@ -206,15 +197,14 @@ public class ForestView extends Object {
 						});
 						sleepThread.start();
 						sleepThread.join();
-						// this.paint(getGraphics());
-						if (this.branchesMap.containsKey(currentNodeNum)) {
-							this.exploreTree(this.branchesMap.get(currentNodeNum), currentNodeNum); // 再帰呼び出し
-							// todo: nodeNumの位置を修正
+						if (this.branchesMap.containsKey(currentNodeNum)) { // childがいれば*再帰呼び出し*
+							this.exploreTree(this.branchesMap.get(currentNodeNum), currentNodeNum);
+							this.modParentNodePointY(this.branchesMap.get(currentNodeNum), currentNodeNum); // 親のY修正
 						}
+
 					} catch (Exception e) {
-
+						System.out.println(e);
 					}
-
 					// Thread.sleep(500);
 					// JLabel currentLabel = this.labelsArrayList.get(currentNodeNum - 1); // 0~なので
 					// node番号から-1!!
@@ -224,7 +214,6 @@ public class ForestView extends Object {
 					// currentLabel.setBounds(this.x, this.y, (int) size.getWidth(), (int)
 					// size.getHeight());
 					// this.paint(getGraphics());
-
 					// childがいるかどうか
 					// if (this.branchesMap.containsKey(currentNodeNum)) {
 					// this.exploreTree(this.branchesMap.get(currentNodeNum), currentNodeNum); //
@@ -233,9 +222,19 @@ public class ForestView extends Object {
 					// }
 					// 兄弟(弟)がいるかどうかはいらんのか
 				} catch (Exception e) {
-					System.out.println(e);
 				}
 			});
+		}
+
+		/*
+		 * 親の位置を修正する(子供の配置が終わると呼ばれる！)
+		 */
+		public void modParentNodePointY(ArrayList<Integer> childNodeArr, Integer parentNodeNum) {
+			JLabel parentNodeLabel = this.labelsArrayList.get(parentNodeNum - 1);
+			JLabel childTopJLabel = this.labelsArrayList.get(childNodeArr.get(0) - 1);
+			JLabel childBottomJLabel = this.labelsArrayList.get(childNodeArr.get(childNodeArr.size() - 1) - 1);
+			Integer midpointY = (childTopJLabel.getY() + childBottomJLabel.getY()) / 2;
+			parentNodeLabel.setLocation(parentNodeLabel.getX(), midpointY);
 		}
 
 		/*
@@ -263,8 +262,6 @@ public class ForestView extends Object {
 			 * 2つのラベルを線で繋ぐ (ここは再描画のたびに自動で呼ばれるぽい？
 			 */
 			public void paintComponent(Graphics aGraphics) {
-				this.setLayout(null);
-				// super.paint(aGraphics); // これがないと自動呼出されない？
 				System.out.println("paintcomponent呼び出し");
 				try {
 					// this.aPanel = ForestWindowClass.this.aPanel
@@ -330,62 +327,50 @@ public class ForestView extends Object {
 		 * todo:修正
 		 */
 		public void setPointY(Integer currentNodeNum, Integer parentNodeNum, Boolean isOldestChild) {
-			if (parentNodeNum == 0) {
+			if (parentNodeNum == 0) { // 最上位ノードの時
+				if (isOldestChild == false) {
+					JLabel currentNodeLabel = this.labelsArrayList.get(currentNodeNum - 1);
+					this.y += 2 + currentNodeLabel.getHeight();
+				}
 				return;
 			}
 			JLabel parentNodeLabel = this.labelsArrayList.get(parentNodeNum - 1);
-			Integer parentNodeX = parentNodeLabel.getX();
-			Integer parentNodeWidth = parentNodeLabel.getWidth();
-			Integer parentNodeY = parentNodeLabel.getY();
+			// Integer parentNodeX = parentNodeLabel.getX();
+			// Integer parentNodeWidth = parentNodeLabel.getWidth();
+			// Integer parentNodeY = parentNodeLabel.getY();
 			Integer parentNodeHeight = parentNodeLabel.getHeight();
 			if (isOldestChild == false) {
 				this.y = this.y + parentNodeHeight + 2;
-			} else if (isOldestChild == true) {
-			} else {
-				// this.y += 10; // いらんかな？
 			}
 		}
 
-	}
+		/**
+		 * スクロール量(offsetの逆向きの大きさ)を応答する。
+		 */
+		public Point scrollAmount() // todo!
+		{
+			System.out.println("scrollAmount");
+			int x = 0 - this.offset.x;
+			int y = 0 - this.offset.y;
+			return (new Point(x, y));
+		}
 
-	///////////////////////////////////////////// こっから下はスクロール関係(あとでやる)
-	/**
-	 * 地面(コンポーネント)の描画を行う。
-	 * それはスクロール(offset)を考慮して、今まで描いてきたタイピストアート画像を指定の位置に描画することである。
-	 * 
-	 * @param aGraphics グラフィクス・コンテキスト
-	 */
-	// public void paintComponent(Graphics aGraphics) {} // グラフィクスは使わんかな。。。
+		/**
+		 * スクロール量を指定された座標分だけ相対スクロールする。
+		 */
+		public void scrollBy(Point aPoint) {
+			System.out.println("scrollby");
+			int x = this.offset.x + aPoint.x;
+			int y = this.offset.y + aPoint.y;
+			this.scrollTo(new Point(x, y));
+		}
 
-	/**
-	 * スクロール量(offsetの逆向きの大きさ)を応答する。
-	 * 
-	 * @return x軸とy軸のスクロール量を表す座標
-	 */
-	public Point scrollAmount() {
-		int x = 0 - this.offset.x;
-		int y = 0 - this.offset.y;
-		return (new Point(x, y));
-	}
-
-	/**
-	 * スクロール量を指定された座標分だけ相対スクロールする。
-	 * 
-	 * @param aPoint X軸とY軸のスクロール量を表す座標
-	 */
-	public void scrollBy(Point aPoint) {
-		int x = this.offset.x + aPoint.x;
-		int y = this.offset.y + aPoint.y;
-		this.scrollTo(new Point(x, y));
-	}
-
-	/**
-	 * スクロール量を指定された座標に設定(絶対スクロール)する。
-	 * 
-	 * @param aPoint x軸とy軸の絶対スクロール量を表す座標
-	 */
-	public void scrollTo(Point aPoint) {
-		this.offset = aPoint;
-		return;
+		/**
+		 * スクロール量を指定された座標に設定(絶対スクロール)する。
+		 */
+		public void scrollTo(Point aPoint) {
+			this.offset = aPoint;
+			return;
+		}
 	}
 }
